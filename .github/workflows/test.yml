@@ -1,0 +1,63 @@
+name: Build churro.img
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure Git
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+
+      - name: Free up disk space
+        uses: jlumbroso/free-disk-space@main
+        with:
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          preinstalled-runtimes: true
+          swap-storage: false
+
+      - name: Clone project-churro
+        run: git clone https://github.com/alesimula/project-churro
+        
+      - name: Download and extract recovery image
+        working-directory: project-churro
+        run: |
+          curl -L --fail -o recovery.zip \
+            https://dl.google.com/device/recovery/moonstone-user/16452207/recovery.zip
+          unzip -o recovery.zip
+          rm recovery.zip
+          ls -lh
+          
+          echo "Disk usage:"
+          df -h || true
+          du -sh . || true
+      - name: Install dependency
+        working-directory: project-churro
+        run: |
+          sudo apt update
+          sudo apt upgrade
+          sudo apt install glslang-tools spirv-tools attr build-essential cmake ninja-build libelf-dev libdw-dev uuid-dev libselinux1-dev
+                    
+          echo "Disk usage:"
+          df -h || true
+          du -sh . || true
+      - name: Run churro
+        working-directory: project-churro
+        run: |
+          chmod +x churro.sh
+          sudo ./churro.sh auto android-desktop_signed_recovery_image.bin churro.img
+
+      - name: Upload churro.img
+        uses: actions/upload-artifact@v4
+        with:
+          name: churro.img
+          path: project-churro/churro.img
+          if-no-files-found: error
+          compression-level: 6
